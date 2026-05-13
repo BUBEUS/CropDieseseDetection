@@ -5,7 +5,7 @@ import time
 
 
 
-'''Pomysł jest taki, żeby uruchomić np 5 kontenerów'''
+'''Pomysł jest taki, żeby uruchomić np 5 kontenerów Data Service, każdy losowe dane IOT i z drona np do 10 różnych klientów'''
 
 
 print("Uruchomiono Data Service...")
