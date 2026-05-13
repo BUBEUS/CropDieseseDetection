@@ -21,6 +21,13 @@ services:
     depends_on:
       - db
 
+  message_broker:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"   # Port, przez który kod wysyła wiadomości
+      - "15672:15672" # tu odpalasz przeglądarkę (Panel Admina)
+    restart: always
+
   data_service:
     container_name: crop_data
     build:

@@ -3,6 +3,11 @@ from .iot_generator import DataGenerator
 from .drone_generator import DroneGenerator
 import time
 
+
+
+'''Pomysł jest taki, żeby uruchomić np 5 kontenerów'''
+
+
 print("Uruchomiono Data Service...")
 
 iot_generator = DataGenerator()
