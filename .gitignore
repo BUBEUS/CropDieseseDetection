@@ -1,0 +1,13 @@
+.idea
+.env
+.venv
+.vscode/
+.idea/
+build/
+*.manifest
+*.spec
+docs/_build/
+.python-version
+
+
+./postgres_data
