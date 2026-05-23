@@ -1,6 +1,6 @@
-.idea
+.idea/
 .env
-.venv
+.venv/
 .vscode/
 .idea/
 build/
