@@ -1,3 +1,4 @@
+
 '''
 Odbiór: Przyjęcie połączenia HTTP/HTTPS.
 

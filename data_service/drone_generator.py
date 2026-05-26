@@ -20,6 +20,7 @@ class DroneGenerator:
 
     def get_drone_payload(self):
         return {
+            "type": "drone",
             "client_id": self.client_id,
             "photo_number": self.photo_number,
             "latitude": self.latitude,

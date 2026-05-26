@@ -4,6 +4,7 @@ from .drone_generator import DroneGenerator
 import time
 import random
 
+'''Skrypt w nieskończoność generuje dane IOT lub z drona i próbuje je wysłać do Data Acquisition.'''
 '''Pomysł jest taki, żeby uruchomić np 5 kontenerów Data Service, każdy losowe dane IOT i z drona np do 10 różnych klientów'''
 
 print("Uruchomiono Data Service...")
@@ -15,10 +16,10 @@ data_sender = DataSender(target_url="http://data_acquisition:5000/data")
 #takich pętli powiedzmy będzie działało z 5 próbując dać dane do kolejki imitując wysyłanie od różnych klientów
 while True:
     attempts = 0
-    max_attempts = 5
+    max_attempts = 5 #każda próba będzie miała 5 prób ponowienia w przypadku błędu, potem dane przepadają, a generator tworzy nowe
     wait_time = 2
 
-    if random.random() < 0.7:
+    if random.random() < 0.7: #70% szans na dane IOT
         # Generowanie danych IOT
         iot_generator.generate_measurement()
         iot_payload = iot_generator.get_iot_payload()

@@ -17,6 +17,7 @@ class DataGenerator:
 
     def get_iot_payload(self):
         return {
+            "type": "iot",
             "client_id": self.client_id,
             "temperature": self.temperature,
             "humidity": self.humidity,

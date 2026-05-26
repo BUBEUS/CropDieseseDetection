@@ -7,10 +7,8 @@ class DataSender:
 
     def send_data(self, payload):
         try:
-            headers = {'Content-Type': 'application/json'}
-
             response = requests.post(self.target_url, json=payload, timeout=5)
-            response.raise_for_status()  # Sprawdza, czy odpowiedź jest sukcesem (2xx)
+            response.raise_for_status()  # Sprawdza, czy odpowiedź jest sukcesem (200? (2xx))
 
             print(f"[SUKCES] Dane zostały wysłane do {self.target_url}. Odpowiedź serwera: {response.status_code}")
             return True
