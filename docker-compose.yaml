@@ -9,8 +9,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
+      - ./postgres_data:/var/lib/postgresql/data
 
   web_app:
     container_name: crop_web
@@ -18,8 +17,6 @@ services:
       context: ./web_app
     ports:
       - "8000:8000"
-    depends_on:
-      - db
 
   message_broker:
     image: rabbitmq:3-management
@@ -32,15 +29,12 @@ services:
     container_name: crop_data
     build:
       context: ./data_service
-    ports:
-      - "5000:5000"
 
 
   data_acquisition:
     container_name: crop_data_acquisition
     build:
       context: ./data_acquisition
-
 
   ai_system:
     container_name: crop_ai_system
