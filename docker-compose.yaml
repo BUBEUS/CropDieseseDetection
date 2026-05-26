@@ -17,6 +17,8 @@ services:
       context: ./web_app
     ports:
       - "8000:8000"
+    volumes:
+      - ./photos:/app/photos
 
   message_broker:
     image: rabbitmq:3-management
