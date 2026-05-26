@@ -1,6 +1,5 @@
 import requests
 
-
 class DataSender:
     def __init__(self, target_url):
         self.target_url = target_url

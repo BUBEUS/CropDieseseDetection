@@ -4,8 +4,6 @@ from .drone_generator import DroneGenerator
 import time
 import random
 
-
-
 '''Pomysł jest taki, żeby uruchomić np 5 kontenerów Data Service, każdy losowe dane IOT i z drona np do 10 różnych klientów'''
 
 print("Uruchomiono Data Service...")
