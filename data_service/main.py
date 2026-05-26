@@ -1,6 +1,6 @@
-from .send_data import DataSender
-from .iot_generator import DataGenerator
-from .drone_generator import DroneGenerator
+from send_data import DataSender
+from iot_generator import DataGenerator
+from drone_generator import DroneGenerator
 import time
 import random
 
@@ -24,6 +24,7 @@ while True:
         iot_generator.generate_measurement()
         iot_payload = iot_generator.get_iot_payload()
 
+        print(iot_payload)
         while attempts < max_attempts:
             if data_sender.send_data(iot_payload):
                 print("Wysyłanie danych IOT...")
