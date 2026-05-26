@@ -11,6 +11,7 @@ class DataGenerator:
         self.pressure = 0
 
     def generate_measurement(self):
+        self.client_id = random.randint(1, 20)
         self.temperature = round(random.uniform(-20.0, 40.0), 2)
         self.humidity = random.randint(0, 100)
         self.pressure = random.randint(950, 1050)

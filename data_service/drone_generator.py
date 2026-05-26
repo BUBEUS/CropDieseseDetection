@@ -12,6 +12,7 @@ class DroneGenerator:
         self.altitude = 0.0
 
     def generate_photo(self, max_number=1):
+        self.client_id = random.randint(1, 20)
         self.photo_number = random.randint(1, max_number)
         self.latitude = round(random.uniform(-90.0, 90.0), 6)
         self.longitude = round(random.uniform(-180.0, 180.0), 6)
