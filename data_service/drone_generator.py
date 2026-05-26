@@ -1,6 +1,5 @@
 import random
 
-
 PHOTO_FOLDER = "photos" #konwencja nazewnictwa photo_{number}.jpg
 
 class DroneGenerator:
