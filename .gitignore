@@ -12,3 +12,5 @@ docs/_build/
 
 ./postgres_data
 postgres_data/
+
+__pycache__/
