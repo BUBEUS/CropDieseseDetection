@@ -1,28 +1,114 @@
-<html>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
-    <head>
-        <title>Drop diesese application</title>
-    </head>
-    <body>
-        <h1>Tu można sprawdzić rekomendacje AI oraz dane z własnych pól</h1>
-        <table>
-            <tr>
-                <th>Pole</th>
-                <th>Dane</th>
-            </tr>
-            <tr>
-                <td>1</td>
-                <td>Wartość 1</td>
-            </tr>
-            <tr>
-                <td>2</td>
-                <td>Wartość 2</td>
-            </tr>
-        </table>
-        <p>
-            <picture>
-                <img src="/photos/photo_1.jpg" alt="Pole uprawne">
-            </picture>
-        </p>
-    </body>
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Crop Disease Application</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css">
+    <style>
+        body { padding: 20px; }
+        .data-section { display: none; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Panel Rolnika - Dane z Pól</h1>
+
+        <div class="form-group">
+            <label for="clientSelect"><strong>Wybierz klienta:</strong></label>
+            <select id="clientSelect" class="form-control" onchange="loadData()">
+                <option value="">-- Wybierz z listy --</option>
+            </select>
+        </div>
+
+        <div id="dataContainer" class="data-section">
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" data-toggle="tab" href="#drone" role="tab" onclick="switchTab('drone')">Drony</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-toggle="tab" href="#iot" role="tab" onclick="switchTab('iot')">Czujniki IoT</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-toggle="tab" href="#audit" role="tab" onclick="switchTab('audit')">Audit Log</a>
+                </li>
+            </ul>
+
+            <div class="tab-content mt-3">
+                <div class="tab-pane fade show active" id="drone">
+                    <table class="table table-bordered table-striped">
+                        <thead class="thead-dark">
+                            <tr><th>ID</th><th>Zidentyfikator</th><th>Nr Zdjęcia</th><th>Szerokość</th><th>Długość</th><th>Wysokość</th></tr>
+                        </thead>
+                        <tbody id="droneBody"></tbody>
+                    </table>
+                </div>
+                <div class="tab-pane fade" id="iot">
+                    <table class="table table-bordered table-striped">
+                        <thead class="thead-dark">
+                            <tr><th>ID</th><th>Zidentyfikator</th><th>Temp (°C)</th><th>Wilgotność (%)</th><th>Ciśnienie (hPa)</th></tr>
+                        </thead>
+                        <tbody id="iotBody"></tbody>
+                    </table>
+                </div>
+                <div class="tab-pane fade" id="audit">
+                    <table class="table table-bordered table-striped">
+                        <thead class="thead-dark">
+                            <tr><th>ID</th><th>Wykonana Akcja</th></tr>
+                        </thead>
+                        <tbody id="auditBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Pobieranie listy klientów przy starcie strony
+        fetch('/api/clients')
+            .then(res => res.json())
+            .then(data => {
+                const select = document.getElementById('clientSelect');
+                data.forEach(c => select.add(new Option(c.name, c.id)));
+            });
+
+        // Ładowanie danych po wybraniu klienta
+        function loadData() {
+            const clientId = document.getElementById('clientSelect').value;
+            if (!clientId) {
+                document.getElementById('dataContainer').style.display = 'none';
+                return;
+            }
+            document.getElementById('dataContainer').style.display = 'block';
+
+            // Dane z dronów
+            fetch(`/api/drone/${clientId}`).then(res => res.json()).then(data => {
+                document.getElementById('droneBody').innerHTML = data.map(d =>
+                    `<tr><td>${d.id}</td><td>${d.identifier}</td><td>${d.photo_number}</td><td>${d.latitude}</td><td>${d.longitude}</td><td>${d.altitude}</td></tr>`
+                ).join('');
+            });
+
+            // Dane IoT
+            fetch(`/api/iot/${clientId}`).then(res => res.json()).then(data => {
+                document.getElementById('iotBody').innerHTML = data.map(d =>
+                    `<tr><td>${d.id}</td><td>${d.identifier}</td><td>${d.temperature}</td><td>${d.humidity}</td><td>${d.pressure}</td></tr>`
+                ).join('');
+            });
+
+            // Dane Audit Log
+            fetch(`/api/audit/${clientId}`).then(res => res.json()).then(data => {
+                document.getElementById('auditBody').innerHTML = data.map(d =>
+                    `<tr><td>${d.id}</td><td>${d.action}</td></tr>`
+                ).join('');
+            });
+        }
+
+        // Prosta logika przełączania zakładek
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('show', 'active'));
+            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('show', 'active');
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
 </html>
