@@ -1,6 +1,10 @@
 services:
+
+  # -------------------------------------------------------------------------
+  # Baza danych PostgreSQL (Hot DB)
+  # -------------------------------------------------------------------------
   db:
-    image: postgres
+    image: postgres:16
     container_name: crop_db
     environment:
       POSTGRES_USER: myuser
@@ -9,8 +13,68 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./postgres_data:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data
+      - ./db_init.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
+  # -------------------------------------------------------------------------
+  # Message broker (RabbitMQ) – widoczny w architekturze, uzywany w docelowym
+  # systemie; w POC kolejka jest in-memory w data_acquisition
+  # -------------------------------------------------------------------------
+  message_broker:
+    image: rabbitmq:3-management
+    container_name: message_broker
+    ports:
+      - "5672:5672"
+      - "15672:15672"   # panel admina: http://localhost:15672  (guest/guest)
+    restart: always
+
+  # -------------------------------------------------------------------------
+  # Data Acquisition – odbiera dane HTTP, normalizuje, kolejkuje
+  # -------------------------------------------------------------------------
+  data_acquisition:
+    container_name: data_acquisition
+    build:
+      context: ./data_acquisition
+    ports:
+      - "5000:5000"
+    restart: on-failure
+
+  # -------------------------------------------------------------------------
+  # Data Service – symuluje drony i czujniki IoT; wysyla do data_acquisition
+  # -------------------------------------------------------------------------
+  data_service:
+    container_name: data_service
+    build:
+      context: ./data_service
+    depends_on:
+      - data_acquisition
+    restart: on-failure
+
+  # -------------------------------------------------------------------------
+  # AI System – pobiera zadania z kolejki, analizuje, zapisuje do DB
+  # -------------------------------------------------------------------------
+  ai_system:
+    container_name: ai_system
+    build:
+      context: ./ai_system
+    environment:
+      DATA_ACQUISITION_URL: http://data_acquisition:5000
+      DATABASE_URL: postgresql://myuser:mypassword@db:5432/mydb
+    depends_on:
+      db:
+        condition: service_healthy
+      data_acquisition:
+        condition: service_started
+    restart: on-failure
+
+  # -------------------------------------------------------------------------
+  # Web App – panel uzytkownika + REST API
+  # -------------------------------------------------------------------------
   web_app:
     container_name: web_app
     build:
@@ -19,30 +83,12 @@ services:
       - "8000:8000"
     volumes:
       - ./photos:/app/photos
-
-  message_broker:
-    image: rabbitmq:3-management
-    ports:
-      - "5672:5672"   # Port, przez który kod wysyła wiadomości
-      - "15672:15672" # tu odpalasz przeglądarkę (Panel Admina)
-    restart: always
-
-  data_service:
-    container_name: data_service
-    build:
-      context: ./data_service
-
-
-  data_acquisition:
-    container_name: data_acquisition
-    build:
-      context: ./data_acquisition
-
-  ai_system:
-    container_name: ai_system
-    build:
-      context: ./ai_system
-    ports:
-      - "8501:8501"
+    environment:
+      DATABASE_URL: postgresql://myuser:mypassword@db:5432/mydb
     depends_on:
-      - data_acquisition
+      db:
+        condition: service_healthy
+    restart: on-failure
+
+volumes:
+  postgres_data:
