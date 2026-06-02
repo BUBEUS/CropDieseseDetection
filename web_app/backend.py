@@ -52,7 +52,7 @@ def iot_latest():
             SELECT id, client_id, identifier,
                    temperature, humidity, pressure,
                    risk_level, analysis_note,
-                   to_char(received_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS') AS received_at
+                   to_char(received_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM-DD HH24:MI:SS') AS received_at
             FROM iot_readings
             ORDER BY received_at DESC
             LIMIT 25
@@ -70,7 +70,7 @@ def drone_latest():
             SELECT id, client_id, identifier, photo_number,
                    latitude, longitude, altitude,
                    disease_detected, disease_name, risk_score, recommendation,
-                   to_char(received_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS') AS received_at
+                   to_char(received_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM-DD HH24:MI:SS') AS received_at
             FROM drone_observations
             ORDER BY received_at DESC
             LIMIT 25
