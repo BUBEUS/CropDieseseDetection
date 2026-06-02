@@ -95,6 +95,7 @@ services:
       - ./photos:/app/photos
     environment:
       DATABASE_URL: postgresql://myuser:mypassword@db:5432/mydb
+      DATA_ACQUISITION_URL: http://data_acquisition:5000
     depends_on:
       db:
         condition: service_healthy

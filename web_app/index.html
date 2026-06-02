@@ -279,15 +279,59 @@
       white-space: nowrap;
     }
 
-    .b-red   { background: var(--red-bg);   color: var(--red);   }
-    .b-amber { background: var(--amber-bg); color: var(--amber); }
-    .b-green { background: var(--green-bg); color: var(--green); }
-    .b-gray  { background: var(--bg);       color: var(--secondary); }
+    .b-red    { background: var(--red-bg);   color: var(--red);   }
+    .b-amber  { background: var(--amber-bg); color: var(--amber); }
+    .b-green  { background: var(--green-bg); color: var(--green); }
+    .b-gray   { background: var(--bg);       color: var(--secondary); }
+    .b-blue   { background: var(--blue-bg);  color: var(--blue);  }
+    .b-purple { background: #f5f3ff;         color: #7c3aed; }
+
+    /* ─── Service status bar ──────────────────────────────────── */
+    .svc-status {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 18px;
+      box-shadow: var(--shadow);
+      margin: 10px 0 18px;
+      flex-wrap: wrap;
+    }
+    .svc-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--secondary);
+      margin-right: 4px;
+    }
+    .svc-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--primary);
+    }
+    .svc-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background .3s;
+    }
+    .d-green { background: var(--green); }
+    .d-red   { background: var(--red); }
+    .d-amber { background: var(--amber); }
+    .d-gray  { background: var(--muted); }
 
     /* ─── Utilities ───────────────────────────────────────────── */
     .num  { font-variant-numeric: tabular-nums; }
     .dim  { color: var(--muted); font-size: 12px; }
     .clip { max-width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
   </style>
 </head>
 <body>
@@ -312,6 +356,23 @@
 <div class="page">
   <div class="page-title">Przegląd systemu</div>
   <div class="page-sub">Dane z czujników IoT i dronów w czasie rzeczywistym</div>
+
+  <!-- Service Status -->
+  <div class="svc-status">
+    <span class="svc-label">Status usług</span>
+    <div class="svc-item" id="svc-webapp">
+      <span class="svc-dot d-gray"></span>Web App
+    </div>
+    <div class="svc-item" id="svc-db">
+      <span class="svc-dot d-gray"></span>Baza danych
+    </div>
+    <div class="svc-item" id="svc-acq">
+      <span class="svc-dot d-gray"></span>Data Acquisition
+    </div>
+    <div class="svc-item" id="svc-broker">
+      <span class="svc-dot d-gray"></span>Message Broker
+    </div>
+  </div>
 
   <!-- Stats -->
   <div class="stats">
@@ -398,11 +459,12 @@
               <th>Wilg %</th>
               <th>Ciśn hPa</th>
               <th>Ryzyko</th>
+              <th>Analiza AI</th>
               <th>Czas (PL)</th>
             </tr>
           </thead>
           <tbody id="iot-body">
-            <tr class="row-empty"><td colspan="7">Ładowanie danych…</td></tr>
+            <tr class="row-empty"><td colspan="8">Ładowanie danych…</td></tr>
           </tbody>
         </table>
       </div>
@@ -439,6 +501,40 @@
     </div>
 
   </div>
+
+  <!-- Audit Log -->
+  <div class="panel" style="margin-top:14px;">
+    <div class="panel-header">
+      <div class="panel-icon" style="background:#f5f3ff;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+      </div>
+      <span class="panel-title">Audit Log — zdarzenia systemu AI</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="audit-count"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="dt">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Klient</th>
+            <th>Typ</th>
+            <th>Szczegóły</th>
+            <th>Czas (PL)</th>
+          </tr>
+        </thead>
+        <tbody id="audit-body">
+          <tr class="row-empty"><td colspan="5">Ładowanie danych…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -447,6 +543,33 @@ const RISK = {
   medium: '<span class="badge b-amber">Średnie</span>',
   low:    '<span class="badge b-green">Niskie</span>',
 };
+
+function dotClass(status) {
+  if (status === 'ok') return 'd-green';
+  if (status === 'timeout' || status === 'degraded') return 'd-amber';
+  if (status === 'unknown') return 'd-gray';
+  return 'd-red';
+}
+
+function setAllDots(cls) {
+  ['#svc-webapp', '#svc-db', '#svc-acq', '#svc-broker'].forEach(id => {
+    const el = document.querySelector(`${id} .svc-dot`);
+    if (el) el.className = `svc-dot ${cls}`;
+  });
+}
+
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/services/status');
+    if (!r.ok) { setAllDots('d-red'); return; }
+    const d = await r.json();
+    document.querySelector('#svc-webapp .svc-dot').className = 'svc-dot d-green';
+    document.querySelector('#svc-db .svc-dot').className     = `svc-dot ${dotClass(d.database)}`;
+    document.querySelector('#svc-acq .svc-dot').className    = `svc-dot ${dotClass(d.data_acquisition)}`;
+    const brokerOk = d.data_acquisition_broker === true && d.data_acquisition === 'ok';
+    document.querySelector('#svc-broker .svc-dot').className = `svc-dot ${brokerOk ? 'd-green' : dotClass(d.data_acquisition)}`;
+  } catch (_) { setAllDots('d-red'); }
+}
 
 async function refreshDashboard() {
   try {
@@ -467,19 +590,22 @@ async function refreshIot() {
     const rows = await r.json();
     if (!Array.isArray(rows) || rows.length === 0) {
       document.getElementById('iot-body').innerHTML =
-        '<tr class="row-empty"><td colspan="7">Brak danych — system zbiera dane…</td></tr>';
+        '<tr class="row-empty"><td colspan="8">Brak danych — system zbiera dane…</td></tr>';
       return;
     }
-    document.getElementById('iot-body').innerHTML = rows.map(row => `
-      <tr>
-        <td><span class="badge b-gray">${row.client_id}</span></td>
-        <td>${row.identifier}</td>
+    document.getElementById('iot-body').innerHTML = rows.map(row => {
+      const note = (row.analysis_note || '').substring(0, 60) + ((row.analysis_note || '').length > 60 ? '…' : '');
+      return `<tr>
+        <td title="${row.client_name || ''}">${row.client_name || row.client_id}</td>
+        <td class="num">${row.identifier}</td>
         <td class="num">${Number(row.temperature).toFixed(1)}</td>
-        <td class="num">${row.humidity}</td>
-        <td class="num">${row.pressure}</td>
+        <td class="num">${Number(row.humidity).toFixed(0)}</td>
+        <td class="num">${Number(row.pressure).toFixed(0)}</td>
         <td>${RISK[row.risk_level] ?? row.risk_level}</td>
+        <td><span class="clip dim" title="${row.analysis_note || ''}">${note}</span></td>
         <td><span class="dim num">${row.received_at}</span></td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   } catch (_) {}
 }
 
@@ -497,9 +623,9 @@ async function refreshDrone() {
       const badge = row.disease_detected
         ? `<span class="badge b-red" title="${row.disease_name}">${(row.disease_name || '').split('(')[0].trim()}</span>`
         : '<span class="badge b-green">Zdrowe</span>';
-      const rec = (row.recommendation || '').substring(0, 55) + (row.recommendation?.length > 55 ? '…' : '');
+      const rec = (row.recommendation || '').substring(0, 55) + ((row.recommendation || '').length > 55 ? '…' : '');
       return `<tr>
-        <td><span class="badge b-gray">${row.client_id}</span></td>
+        <td title="${row.client_name || ''}">${row.client_name || row.client_id}</td>
         <td class="num">#${row.photo_number}</td>
         <td>${badge}</td>
         <td class="num">${Number(row.risk_score).toFixed(2)}</td>
@@ -510,8 +636,38 @@ async function refreshDrone() {
   } catch (_) {}
 }
 
+async function refreshAudit() {
+  try {
+    const r = await fetch('/api/audit/latest');
+    if (!r.ok) return;
+    const rows = await r.json();
+    if (!Array.isArray(rows) || rows.length === 0) {
+      document.getElementById('audit-body').innerHTML =
+        '<tr class="row-empty"><td colspan="5">Brak wpisów w logu…</td></tr>';
+      document.getElementById('audit-count').textContent = '';
+      return;
+    }
+    document.getElementById('audit-count').textContent = `${rows.length} wpisów`;
+    document.getElementById('audit-body').innerHTML = rows.map(row => {
+      const typeBadge = row.action === 'iot_saved'
+        ? '<span class="badge b-blue">IoT</span>'
+        : row.action === 'drone_saved'
+          ? '<span class="badge b-green">Dron</span>'
+          : `<span class="badge b-gray">${row.action}</span>`;
+      const details = (row.details || '').substring(0, 85) + ((row.details || '').length > 85 ? '…' : '');
+      return `<tr>
+        <td class="dim num">${row.id}</td>
+        <td title="${row.client_name || ''}">${row.client_name || row.client_id}</td>
+        <td>${typeBadge}</td>
+        <td><span class="dim" title="${row.details || ''}">${details}</span></td>
+        <td><span class="dim num">${row.created_at}</span></td>
+      </tr>`;
+    }).join('');
+  } catch (_) {}
+}
+
 async function refresh() {
-  await Promise.all([refreshDashboard(), refreshIot(), refreshDrone()]);
+  await Promise.all([refreshStatus(), refreshDashboard(), refreshIot(), refreshDrone(), refreshAudit()]);
 }
 
 refresh();

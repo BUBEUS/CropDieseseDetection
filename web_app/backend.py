@@ -1,7 +1,9 @@
 import os
+from datetime import datetime, timezone
 
 import psycopg2
 import psycopg2.extras
+import requests as http_requests
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
@@ -10,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 app = FastAPI(title="CropDisease Web App")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://myuser:mypassword@db:5432/mydb")
+DATA_ACQUISITION_URL = os.getenv("DATA_ACQUISITION_URL", "http://data_acquisition:5000")
 
 app.mount("/photos", StaticFiles(directory="/app/photos"), name="photos")
 
@@ -24,6 +27,39 @@ def query_db(sql: str, params=None) -> list[dict]:
 @app.get("/")
 def index():
     return FileResponse("index.html")
+
+
+@app.get("/api/services/status")
+def services_status():
+    ts = datetime.now(timezone.utc).isoformat()
+    result: dict = {
+        "web_app": "ok",
+        "database": "unknown",
+        "data_acquisition": "unknown",
+        "data_acquisition_broker": False,
+        "timestamp": ts,
+    }
+
+    try:
+        query_db("SELECT 1")
+        result["database"] = "ok"
+    except Exception:
+        result["database"] = "error"
+
+    try:
+        resp = http_requests.get(f"{DATA_ACQUISITION_URL}/health", timeout=2.0)
+        if resp.status_code == 200:
+            acq = resp.json()
+            result["data_acquisition"] = acq.get("status", "unknown")
+            result["data_acquisition_broker"] = acq.get("broker_connected", False)
+        else:
+            result["data_acquisition"] = "degraded"
+    except http_requests.exceptions.Timeout:
+        result["data_acquisition"] = "timeout"
+    except Exception:
+        result["data_acquisition"] = "unreachable"
+
+    return result
 
 
 @app.get("/api/clients")
