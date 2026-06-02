@@ -26,6 +26,14 @@ def index():
     return FileResponse("index.html")
 
 
+@app.get("/api/clients")
+def clients():
+    try:
+        return query_db("SELECT id, name, location FROM clients ORDER BY id")
+    except Exception as exc:
+        return JSONResponse(status_code=503, content={"error": str(exc)})
+
+
 @app.get("/api/dashboard")
 def dashboard():
     try:
@@ -39,7 +47,8 @@ def dashboard():
             "COUNT(CASE WHEN disease_detected THEN 1 END) AS diseases "
             "FROM drone_observations"
         )[0]
-        return {"iot": iot, "drone": drone}
+        audit = query_db("SELECT COUNT(*) AS total FROM audit_log")[0]
+        return {"iot": iot, "drone": drone, "audit": audit}
     except Exception as exc:
         return JSONResponse(status_code=503, content={"error": str(exc)})
 
@@ -49,12 +58,13 @@ def iot_latest():
     try:
         return query_db(
             """
-            SELECT id, client_id, identifier,
-                   temperature, humidity, pressure,
-                   risk_level, analysis_note,
-                   to_char(received_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM-DD HH24:MI:SS') AS received_at
-            FROM iot_readings
-            ORDER BY received_at DESC
+            SELECT r.id, r.client_id, c.name AS client_name, c.location AS client_location,
+                   r.identifier, r.temperature, r.humidity, r.pressure,
+                   r.risk_level, r.analysis_note,
+                   to_char(r.received_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM-DD HH24:MI:SS') AS received_at
+            FROM iot_readings r
+            LEFT JOIN clients c ON c.id = r.client_id
+            ORDER BY r.received_at DESC
             LIMIT 25
             """
         )
@@ -67,13 +77,33 @@ def drone_latest():
     try:
         return query_db(
             """
-            SELECT id, client_id, identifier, photo_number,
-                   latitude, longitude, altitude,
-                   disease_detected, disease_name, risk_score, recommendation,
-                   to_char(received_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM-DD HH24:MI:SS') AS received_at
-            FROM drone_observations
-            ORDER BY received_at DESC
+            SELECT d.id, d.client_id, c.name AS client_name, c.location AS client_location,
+                   d.identifier, d.photo_number,
+                   d.latitude, d.longitude, d.altitude,
+                   d.disease_detected, d.disease_name, d.risk_score, d.recommendation,
+                   to_char(d.received_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM-DD HH24:MI:SS') AS received_at
+            FROM drone_observations d
+            LEFT JOIN clients c ON c.id = d.client_id
+            ORDER BY d.received_at DESC
             LIMIT 25
+            """
+        )
+    except Exception as exc:
+        return JSONResponse(status_code=503, content={"error": str(exc)})
+
+
+@app.get("/api/audit/latest")
+def audit_latest():
+    try:
+        return query_db(
+            """
+            SELECT a.id, a.client_id, c.name AS client_name,
+                   a.action, a.details,
+                   to_char(a.created_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM-DD HH24:MI:SS') AS created_at
+            FROM audit_log a
+            LEFT JOIN clients c ON c.id = a.client_id
+            ORDER BY a.created_at DESC
+            LIMIT 50
             """
         )
     except Exception as exc:

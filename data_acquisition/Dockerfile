@@ -3,7 +3,7 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # Instalujemy tylko to, czego potrzebuje serwis Data Acquisition.
-RUN pip install --no-cache-dir fastapi "uvicorn[standard]"
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]" aio-pika
 
 # Kopiujemy plik aplikacji do kontenera. 
 COPY . .

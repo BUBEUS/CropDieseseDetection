@@ -1,22 +1,25 @@
 """
-AI System – petla przetwarzania zadan.
+AI System – konsument RabbitMQ.
 
-Pobiera zadania z kolejki Data Acquisition (GET /broker/next),
-analizuje dane IoT lub zdjecia z drona, zapisuje wyniki do PostgreSQL.
+Pobiera zadania z kolejki RabbitMQ (crop_analysis),
+analizuje dane IoT lub zdjecia z drona, zapisuje wyniki i audyt do PostgreSQL.
 """
 
+import functools
+import json
 import os
 import random
 import time
 
+import pika
+import pika.exceptions
 import psycopg2
 import psycopg2.extras
-import requests
 
-DATA_ACQUISITION_URL = os.getenv("DATA_ACQUISITION_URL", "http://data_acquisition:5000")
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://myuser:mypassword@db:5432/mydb")
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@message_broker:5672/")
+QUEUE_NAME = "crop_analysis"
 
-# Realistyczne nazwy chorob upraw
 CROP_DISEASES = [
     "Zaraza ziemniaka (Phytophthora infestans)",
     "Mączniak prawdziwy zbóż",
@@ -70,7 +73,7 @@ def analyze_iot(data: dict) -> dict:
 
 
 def analyze_drone(data: dict) -> dict:
-    disease_detected = random.random() < 0.28  # ~28% szans na chorobę
+    disease_detected = random.random() < 0.28
     if disease_detected:
         name = random.choice(CROP_DISEASES)
         score = round(random.uniform(0.58, 0.96), 2)
@@ -146,6 +149,15 @@ def save_drone(conn, job: dict, analysis: dict) -> None:
     conn.commit()
 
 
+def save_audit(conn, client_id: int, action: str, details: str) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO audit_log (client_id, action, details) VALUES (%s, %s, %s)",
+            (client_id, action, details),
+        )
+    conn.commit()
+
+
 # ---------------------------------------------------------------------------
 # Infrastruktura
 # ---------------------------------------------------------------------------
@@ -161,37 +173,65 @@ def wait_for_db() -> psycopg2.extensions.connection:
             time.sleep(3)
 
 
-def process_next_job(conn) -> bool:
-    """Pobiera jedno zadanie z kolejki i je przetwarza. Zwraca False gdy kolejka pusta."""
+def wait_for_rabbitmq() -> pika.BlockingConnection:
+    while True:
+        try:
+            params = pika.URLParameters(RABBITMQ_URL)
+            params.heartbeat = 60
+            params.blocked_connection_timeout = 300
+            connection = pika.BlockingConnection(params)
+            print("[AI] Polaczono z RabbitMQ.")
+            return connection
+        except pika.exceptions.AMQPConnectionError:
+            print("[AI] Czekam na RabbitMQ...")
+            time.sleep(3)
+
+
+def on_message(ch, method, properties, body, *, conn_holder: list) -> None:
+    """Callback wywoływany przez pika dla każdej wiadomości z kolejki."""
     try:
-        resp = requests.get(f"{DATA_ACQUISITION_URL}/broker/next", timeout=5)
-    except requests.exceptions.Timeout:
-        print("[AI] Timeout – Data Acquisition nie odpowiada.")
-        return False
-    except requests.exceptions.ConnectionError:
-        print("[AI] Brak polaczenia z Data Acquisition.")
-        return False
+        job = json.loads(body)
+        job_type = job.get("job_type")
+        client_id = job["device"]["client_id"]
+        job_id = job["job_id"]
+        conn = conn_holder[0]
 
-    if resp.status_code == 404:
-        return False  # kolejka pusta
+        if job_type == "iot_analysis":
+            analysis = analyze_iot(job["data"])
+            save_iot(conn, job, analysis)
+            save_audit(conn, client_id, "iot_saved",
+                       f"job_id={job_id} risk={analysis['risk_level']}")
+            print(f"[AI] IoT  job={job_id} ryzyko={analysis['risk_level']}  "
+                  f"{analysis['analysis_note'][:60]}")
 
-    resp.raise_for_status()
-    job = resp.json()["message"]
-    job_type = job.get("job_type")
-    print(f"[AI] Zadanie {job['job_id']} ({job_type})")
+        elif job_type == "drone_analysis":
+            analysis = analyze_drone(job["data"])
+            save_drone(conn, job, analysis)
+            save_audit(conn, client_id, "drone_saved",
+                       f"job_id={job_id} disease={analysis['disease_detected']} "
+                       f"score={analysis['risk_score']}")
+            label = analysis["disease_name"] or "zdrowe"
+            print(f"[AI] Drone job={job_id} choroba={'TAK' if analysis['disease_detected'] else 'NIE'}  "
+                  f"{label}  score={analysis['risk_score']}")
 
-    if job_type == "iot_analysis":
-        analysis = analyze_iot(job["data"])
-        save_iot(conn, job, analysis)
-        print(f"     ryzyko={analysis['risk_level']}  {analysis['analysis_note'][:70]}")
+        else:
+            print(f"[AI] Nieznany typ zadania: {job_type}")
 
-    elif job_type == "drone_analysis":
-        analysis = analyze_drone(job["data"])
-        save_drone(conn, job, analysis)
-        label = analysis["disease_name"] or "zdrowe"
-        print(f"     choroba={'TAK' if analysis['disease_detected'] else 'NIE'}  {label}  score={analysis['risk_score']}")
+        ch.basic_ack(delivery_tag=method.delivery_tag)
 
-    return True
+    except (psycopg2.OperationalError, psycopg2.InterfaceError) as exc:
+        print(f"[AI] Blad bazy danych: {exc}. Ponawiam polaczenie z DB...")
+        try:
+            conn_holder[0].close()
+        except Exception:
+            pass
+        conn_holder[0] = wait_for_db()
+        # Wróć wiadomość do kolejki — zostanie przetworzona po reconnect
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+
+    except Exception as exc:
+        print(f"[AI] Blad przetwarzania zadania: {exc}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 
 # ---------------------------------------------------------------------------
@@ -199,23 +239,42 @@ def process_next_job(conn) -> bool:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    print("[AI] System AI uruchomiony. Lacze z baza i kolejka...")
-    conn = wait_for_db()
+    print("[AI] System AI uruchomiony. Lacze z baza i kolejka RabbitMQ...")
+    conn_holder = [wait_for_db()]
 
     while True:
         try:
-            processed = process_next_job(conn)
-            # Gdy kolejka pusta – odczekaj chwile, by nie hammeric serwisu
-            if not processed:
-                time.sleep(2)
-        except Exception as exc:
-            print(f"[AI] Blad: {exc}. Ponawiam polaczenie...")
+            rmq_conn = wait_for_rabbitmq()
+            channel = rmq_conn.channel()
+            channel.queue_declare(queue=QUEUE_NAME, durable=True)
+            channel.basic_qos(prefetch_count=1)  # jeden job naraz = fair dispatch
+
+            callback = functools.partial(on_message, conn_holder=conn_holder)
+            channel.basic_consume(queue=QUEUE_NAME, on_message_callback=callback)
+
+            print(f"[AI] Czeka na zadania z kolejki '{QUEUE_NAME}'...")
+            channel.start_consuming()
+
+        except (
+            pika.exceptions.AMQPConnectionError,
+            pika.exceptions.AMQPChannelError,
+            pika.exceptions.ConnectionClosedByBroker,
+            pika.exceptions.StreamLostError,
+        ) as exc:
+            print(f"[AI] Utracono polaczenie z RabbitMQ: {exc}. Ponawiam za 5s...")
+            time.sleep(5)
+
+        except KeyboardInterrupt:
+            print("[AI] Zatrzymywanie...")
             try:
-                conn.close()
+                rmq_conn.close()
             except Exception:
                 pass
+            break
+
+        except Exception as exc:
+            print(f"[AI] Nieoczekiwany blad: {exc}")
             time.sleep(5)
-            conn = wait_for_db()
 
 
 if __name__ == "__main__":
