@@ -8,7 +8,7 @@ build/
 *.spec
 docs/_build/
 .python-version
-
+.claude/
 
 ./postgres_data
 postgres_data/
