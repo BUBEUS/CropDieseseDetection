@@ -1,114 +1,677 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <title>Crop Disease Application</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css">
-    <style>
-        body { padding: 20px; }
-        .data-section { display: none; margin-top: 20px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CropDisease – Panel Monitoringu Upraw</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #f1f5f9;
+      --surface:      #ffffff;
+      --nav-bg:       #0f1724;
+      --accent:       #16c784;
+      --primary:      #0f172a;
+      --secondary:    #64748b;
+      --muted:        #94a3b8;
+      --border:       #e2e8f0;
+      --border-light: #f1f5f9;
+      --radius:       10px;
+      --shadow:       0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+
+      --blue:         #2563eb;
+      --blue-bg:      #eff6ff;
+      --red:          #dc2626;
+      --red-bg:       #fef2f2;
+      --green:        #16a34a;
+      --green-bg:     #f0fdf4;
+      --amber:        #d97706;
+      --amber-bg:     #fffbeb;
+    }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--primary);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Navigation ──────────────────────────────────────────── */
+    .topnav {
+      background: var(--nav-bg);
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -.01em;
+      text-decoration: none;
+    }
+
+    .nav-logo {
+      width: 26px;
+      height: 26px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .nav-sep {
+      color: rgba(255,255,255,.2);
+      font-weight: 400;
+      margin-left: 2px;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,.4);
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: live 2s ease-in-out infinite;
+    }
+
+    @keyframes live {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .35; }
+    }
+
+    /* ─── Page ────────────────────────────────────────────────── */
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px 24px 56px;
+    }
+
+    .page-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -.02em;
+      color: var(--primary);
+    }
+
+    .page-sub {
+      font-size: 13px;
+      color: var(--secondary);
+      margin-top: 3px;
+    }
+
+    /* ─── Stats grid ──────────────────────────────────────────── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin: 20px 0 18px;
+    }
+
+    @media (max-width: 960px)  { .stats { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 480px)  { .stats { grid-template-columns: 1fr; } }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--secondary);
+    }
+
+    .stat-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stat-value {
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -.03em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-desc {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .s-blue  .stat-value { color: var(--blue);  } .s-blue  .stat-icon { background: var(--blue-bg);  }
+    .s-red   .stat-value { color: var(--red);   } .s-red   .stat-icon { background: var(--red-bg);   }
+    .s-green .stat-value { color: var(--green); } .s-green .stat-icon { background: var(--green-bg); }
+    .s-amber .stat-value { color: var(--amber); } .s-amber .stat-icon { background: var(--amber-bg); }
+
+    /* ─── Tables layout ───────────────────────────────────────── */
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 1100px) { .panels { grid-template-columns: 1fr; } }
+
+    /* ─── Panel ───────────────────────────────────────────────── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .panel-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .pi-blue  { background: var(--blue-bg);  }
+    .pi-green { background: var(--green-bg); }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    /* ─── Data table ──────────────────────────────────────────── */
+    .dt {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+
+    .dt thead th {
+      padding: 9px 12px;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+      background: #fafbfc;
+      border-bottom: 1px solid var(--border-light);
+      white-space: nowrap;
+      text-align: left;
+    }
+
+    .dt tbody td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border-light);
+      vertical-align: middle;
+    }
+
+    .dt tbody tr:last-child td { border-bottom: none; }
+    .dt tbody tr:hover td { background: #fafbfc; transition: background .1s; }
+
+    .dt .row-empty td {
+      text-align: center;
+      color: var(--muted);
+      padding: 36px 12px;
+      font-size: 13px;
+    }
+
+    /* ─── Badges ──────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.6;
+      white-space: nowrap;
+    }
+
+    .b-red    { background: var(--red-bg);   color: var(--red);   }
+    .b-amber  { background: var(--amber-bg); color: var(--amber); }
+    .b-green  { background: var(--green-bg); color: var(--green); }
+    .b-gray   { background: var(--bg);       color: var(--secondary); }
+    .b-blue   { background: var(--blue-bg);  color: var(--blue);  }
+    .b-purple { background: #f5f3ff;         color: #7c3aed; }
+
+    /* ─── Service status bar ──────────────────────────────────── */
+    .svc-status {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 18px;
+      box-shadow: var(--shadow);
+      margin: 10px 0 18px;
+      flex-wrap: wrap;
+    }
+    .svc-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--secondary);
+      margin-right: 4px;
+    }
+    .svc-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--primary);
+    }
+    .svc-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background .3s;
+    }
+    .d-green { background: var(--green); }
+    .d-red   { background: var(--red); }
+    .d-amber { background: var(--amber); }
+    .d-gray  { background: var(--muted); }
+
+    /* ─── Utilities ───────────────────────────────────────────── */
+    .num  { font-variant-numeric: tabular-nums; }
+    .dim  { color: var(--muted); font-size: 12px; }
+    .clip { max-width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1 class="mb-4">Panel Rolnika - Dane z Pól</h1>
 
-        <div class="form-group">
-            <label for="clientSelect"><strong>Wybierz klienta:</strong></label>
-            <select id="clientSelect" class="form-control" onchange="loadData()">
-                <option value="">-- Wybierz z listy --</option>
-            </select>
+<nav class="topnav">
+  <div class="nav-brand">
+    <div class="nav-logo">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+        <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+      </svg>
+    </div>
+    CropDisease
+    <span class="nav-sep">/ Panel Monitoringu Upraw</span>
+  </div>
+  <div class="nav-right">
+    <div class="live-dot"></div>
+    Live — odświeżanie co 5 s
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-title">Przegląd systemu</div>
+  <div class="page-sub">Dane z czujników IoT i dronów w czasie rzeczywistym</div>
+
+  <!-- Service Status -->
+  <div class="svc-status">
+    <span class="svc-label">Status usług</span>
+    <div class="svc-item" id="svc-webapp">
+      <span class="svc-dot d-gray"></span>Web App
+    </div>
+    <div class="svc-item" id="svc-db">
+      <span class="svc-dot d-gray"></span>Baza danych
+    </div>
+    <div class="svc-item" id="svc-acq">
+      <span class="svc-dot d-gray"></span>Data Acquisition
+    </div>
+    <div class="svc-item" id="svc-broker">
+      <span class="svc-dot d-gray"></span>Message Broker
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+
+    <div class="stat-card s-blue">
+      <div class="stat-row">
+        <span class="stat-label">Odczyty IoT</span>
+        <div class="stat-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
         </div>
-
-        <div id="dataContainer" class="data-section">
-            <ul class="nav nav-tabs" role="tablist">
-                <li class="nav-item">
-                    <a class="nav-link active" data-toggle="tab" href="#drone" role="tab" onclick="switchTab('drone')">Drony</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-toggle="tab" href="#iot" role="tab" onclick="switchTab('iot')">Czujniki IoT</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-toggle="tab" href="#audit" role="tab" onclick="switchTab('audit')">Audit Log</a>
-                </li>
-            </ul>
-
-            <div class="tab-content mt-3">
-                <div class="tab-pane fade show active" id="drone">
-                    <table class="table table-bordered table-striped">
-                        <thead class="thead-dark">
-                            <tr><th>ID</th><th>Zidentyfikator</th><th>Nr Zdjęcia</th><th>Szerokość</th><th>Długość</th><th>Wysokość</th></tr>
-                        </thead>
-                        <tbody id="droneBody"></tbody>
-                    </table>
-                </div>
-                <div class="tab-pane fade" id="iot">
-                    <table class="table table-bordered table-striped">
-                        <thead class="thead-dark">
-                            <tr><th>ID</th><th>Zidentyfikator</th><th>Temp (°C)</th><th>Wilgotność (%)</th><th>Ciśnienie (hPa)</th></tr>
-                        </thead>
-                        <tbody id="iotBody"></tbody>
-                    </table>
-                </div>
-                <div class="tab-pane fade" id="audit">
-                    <table class="table table-bordered table-striped">
-                        <thead class="thead-dark">
-                            <tr><th>ID</th><th>Wykonana Akcja</th></tr>
-                        </thead>
-                        <tbody id="auditBody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+      </div>
+      <div class="stat-value" id="s-iot-total">–</div>
+      <div class="stat-desc">łącznie pomiarów</div>
     </div>
 
-    <script>
-        // Pobieranie listy klientów przy starcie strony
-        fetch('/api/clients')
-            .then(res => res.json())
-            .then(data => {
-                const select = document.getElementById('clientSelect');
-                data.forEach(c => select.add(new Option(c.name, c.id)));
-            });
+    <div class="stat-card s-red">
+      <div class="stat-row">
+        <span class="stat-label">Alerty IoT</span>
+        <div class="stat-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+      </div>
+      <div class="stat-value" id="s-iot-high">–</div>
+      <div class="stat-desc">wysokie ryzyko</div>
+    </div>
 
-        // Ładowanie danych po wybraniu klienta
-        function loadData() {
-            const clientId = document.getElementById('clientSelect').value;
-            if (!clientId) {
-                document.getElementById('dataContainer').style.display = 'none';
-                return;
-            }
-            document.getElementById('dataContainer').style.display = 'block';
+    <div class="stat-card s-green">
+      <div class="stat-row">
+        <span class="stat-label">Zdjęcia dronów</span>
+        <div class="stat-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </div>
+      </div>
+      <div class="stat-value" id="s-drone-total">–</div>
+      <div class="stat-desc">łącznie obserwacji</div>
+    </div>
 
-            // Dane z dronów
-            fetch(`/api/drone/${clientId}`).then(res => res.json()).then(data => {
-                document.getElementById('droneBody').innerHTML = data.map(d =>
-                    `<tr><td>${d.id}</td><td>${d.identifier}</td><td>${d.photo_number}</td><td>${d.latitude}</td><td>${d.longitude}</td><td>${d.altitude}</td></tr>`
-                ).join('');
-            });
+    <div class="stat-card s-amber">
+      <div class="stat-row">
+        <span class="stat-label">Wykryte choroby</span>
+        <div class="stat-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+      </div>
+      <div class="stat-value" id="s-drone-diseases">–</div>
+      <div class="stat-desc">potwierdzonych ognisk</div>
+    </div>
 
-            // Dane IoT
-            fetch(`/api/iot/${clientId}`).then(res => res.json()).then(data => {
-                document.getElementById('iotBody').innerHTML = data.map(d =>
-                    `<tr><td>${d.id}</td><td>${d.identifier}</td><td>${d.temperature}</td><td>${d.humidity}</td><td>${d.pressure}</td></tr>`
-                ).join('');
-            });
+  </div>
 
-            // Dane Audit Log
-            fetch(`/api/audit/${clientId}`).then(res => res.json()).then(data => {
-                document.getElementById('auditBody').innerHTML = data.map(d =>
-                    `<tr><td>${d.id}</td><td>${d.action}</td></tr>`
-                ).join('');
-            });
-        }
+  <!-- Panels -->
+  <div class="panels">
 
-        // Prosta logika przełączania zakładek
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('show', 'active'));
-            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabId).classList.add('show', 'active');
-            event.target.classList.add('active');
-        }
-    </script>
+    <!-- IoT -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-icon pi-blue">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4"/>
+          </svg>
+        </div>
+        <span class="panel-title">Czujniki IoT — ostatnie odczyty</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="dt">
+          <thead>
+            <tr>
+              <th>Klient</th>
+              <th>Czujnik</th>
+              <th>Temp °C</th>
+              <th>Wilg %</th>
+              <th>Ciśn hPa</th>
+              <th>Ryzyko</th>
+              <th>Analiza AI</th>
+              <th>Czas (PL)</th>
+            </tr>
+          </thead>
+          <tbody id="iot-body">
+            <tr class="row-empty"><td colspan="8">Ładowanie danych…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Drony -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-icon pi-green">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </div>
+        <span class="panel-title">Drony — ostatnie obserwacje</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="dt">
+          <thead>
+            <tr>
+              <th>Klient</th>
+              <th>Zdjęcie</th>
+              <th>Wynik AI</th>
+              <th>Score</th>
+              <th>Rekomendacja</th>
+              <th>Czas (PL)</th>
+            </tr>
+          </thead>
+          <tbody id="drone-body">
+            <tr class="row-empty"><td colspan="6">Ładowanie danych…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Audit Log -->
+  <div class="panel" style="margin-top:14px;">
+    <div class="panel-header">
+      <div class="panel-icon" style="background:#f5f3ff;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+      </div>
+      <span class="panel-title">Audit Log — zdarzenia systemu AI</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="audit-count"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="dt">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Klient</th>
+            <th>Typ</th>
+            <th>Szczegóły</th>
+            <th>Czas (PL)</th>
+          </tr>
+        </thead>
+        <tbody id="audit-body">
+          <tr class="row-empty"><td colspan="5">Ładowanie danych…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const RISK = {
+  high:   '<span class="badge b-red">Wysokie</span>',
+  medium: '<span class="badge b-amber">Średnie</span>',
+  low:    '<span class="badge b-green">Niskie</span>',
+};
+
+function dotClass(status) {
+  if (status === 'ok') return 'd-green';
+  if (status === 'timeout' || status === 'degraded') return 'd-amber';
+  if (status === 'unknown') return 'd-gray';
+  return 'd-red';
+}
+
+function setAllDots(cls) {
+  ['#svc-webapp', '#svc-db', '#svc-acq', '#svc-broker'].forEach(id => {
+    const el = document.querySelector(`${id} .svc-dot`);
+    if (el) el.className = `svc-dot ${cls}`;
+  });
+}
+
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/services/status');
+    if (!r.ok) { setAllDots('d-red'); return; }
+    const d = await r.json();
+    document.querySelector('#svc-webapp .svc-dot').className = 'svc-dot d-green';
+    document.querySelector('#svc-db .svc-dot').className     = `svc-dot ${dotClass(d.database)}`;
+    document.querySelector('#svc-acq .svc-dot').className    = `svc-dot ${dotClass(d.data_acquisition)}`;
+    const brokerOk = d.data_acquisition_broker === true && d.data_acquisition === 'ok';
+    document.querySelector('#svc-broker .svc-dot').className = `svc-dot ${brokerOk ? 'd-green' : dotClass(d.data_acquisition)}`;
+  } catch (_) { setAllDots('d-red'); }
+}
+
+async function refreshDashboard() {
+  try {
+    const r = await fetch('/api/dashboard');
+    if (!r.ok) return;
+    const d = await r.json();
+    document.getElementById('s-iot-total').textContent      = d.iot?.total     ?? '–';
+    document.getElementById('s-iot-high').textContent       = d.iot?.high_risk ?? '–';
+    document.getElementById('s-drone-total').textContent    = d.drone?.total   ?? '–';
+    document.getElementById('s-drone-diseases').textContent = d.drone?.diseases ?? '–';
+  } catch (_) {}
+}
+
+async function refreshIot() {
+  try {
+    const r = await fetch('/api/iot/latest');
+    if (!r.ok) return;
+    const rows = await r.json();
+    if (!Array.isArray(rows) || rows.length === 0) {
+      document.getElementById('iot-body').innerHTML =
+        '<tr class="row-empty"><td colspan="8">Brak danych — system zbiera dane…</td></tr>';
+      return;
+    }
+    document.getElementById('iot-body').innerHTML = rows.map(row => {
+      const note = (row.analysis_note || '').substring(0, 60) + ((row.analysis_note || '').length > 60 ? '…' : '');
+      return `<tr>
+        <td title="${row.client_name || ''}">${row.client_name || row.client_id}</td>
+        <td class="num">${row.identifier}</td>
+        <td class="num">${Number(row.temperature).toFixed(1)}</td>
+        <td class="num">${Number(row.humidity).toFixed(0)}</td>
+        <td class="num">${Number(row.pressure).toFixed(0)}</td>
+        <td>${RISK[row.risk_level] ?? row.risk_level}</td>
+        <td><span class="clip dim" title="${row.analysis_note || ''}">${note}</span></td>
+        <td><span class="dim num">${row.received_at}</span></td>
+      </tr>`;
+    }).join('');
+  } catch (_) {}
+}
+
+async function refreshDrone() {
+  try {
+    const r = await fetch('/api/drone/latest');
+    if (!r.ok) return;
+    const rows = await r.json();
+    if (!Array.isArray(rows) || rows.length === 0) {
+      document.getElementById('drone-body').innerHTML =
+        '<tr class="row-empty"><td colspan="6">Brak danych — system zbiera dane…</td></tr>';
+      return;
+    }
+    document.getElementById('drone-body').innerHTML = rows.map(row => {
+      const badge = row.disease_detected
+        ? `<span class="badge b-red" title="${row.disease_name}">${(row.disease_name || '').split('(')[0].trim()}</span>`
+        : '<span class="badge b-green">Zdrowe</span>';
+      const rec = (row.recommendation || '').substring(0, 55) + ((row.recommendation || '').length > 55 ? '…' : '');
+      return `<tr>
+        <td title="${row.client_name || ''}">${row.client_name || row.client_id}</td>
+        <td class="num">#${row.photo_number}</td>
+        <td>${badge}</td>
+        <td class="num">${Number(row.risk_score).toFixed(2)}</td>
+        <td><span class="clip dim" title="${row.recommendation}">${rec}</span></td>
+        <td><span class="dim num">${row.received_at}</span></td>
+      </tr>`;
+    }).join('');
+  } catch (_) {}
+}
+
+async function refreshAudit() {
+  try {
+    const r = await fetch('/api/audit/latest');
+    if (!r.ok) return;
+    const rows = await r.json();
+    if (!Array.isArray(rows) || rows.length === 0) {
+      document.getElementById('audit-body').innerHTML =
+        '<tr class="row-empty"><td colspan="5">Brak wpisów w logu…</td></tr>';
+      document.getElementById('audit-count').textContent = '';
+      return;
+    }
+    document.getElementById('audit-count').textContent = `${rows.length} wpisów`;
+    document.getElementById('audit-body').innerHTML = rows.map(row => {
+      const typeBadge = row.action === 'iot_saved'
+        ? '<span class="badge b-blue">IoT</span>'
+        : row.action === 'drone_saved'
+          ? '<span class="badge b-green">Dron</span>'
+          : `<span class="badge b-gray">${row.action}</span>`;
+      const details = (row.details || '').substring(0, 85) + ((row.details || '').length > 85 ? '…' : '');
+      return `<tr>
+        <td class="dim num">${row.id}</td>
+        <td title="${row.client_name || ''}">${row.client_name || row.client_id}</td>
+        <td>${typeBadge}</td>
+        <td><span class="dim" title="${row.details || ''}">${details}</span></td>
+        <td><span class="dim num">${row.created_at}</span></td>
+      </tr>`;
+    }).join('');
+  } catch (_) {}
+}
+
+async function refresh() {
+  await Promise.all([refreshStatus(), refreshDashboard(), refreshIot(), refreshDrone(), refreshAudit()]);
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
 </body>
 </html>

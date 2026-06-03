@@ -38,7 +38,7 @@ while True:
         # Generowanie danych z drona
         drone_generator.generate_photo(max_number=5)
         drone_payload = drone_generator.get_drone_payload()
-
+        print(drone_payload)
         while attempts < max_attempts:
             if data_sender.send_data(drone_payload):
                 print("Wysyłanie danych z drona...")

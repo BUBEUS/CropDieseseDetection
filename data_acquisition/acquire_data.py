@@ -1,49 +1,42 @@
+"""
+Odbiór: Przyjęcie połączenia HTTP.
+Normalizacja: Przekształcenie danych do standardu kolejki.
+Publikacja: Wydanie wiadomości do RabbitMQ (aio-pika, persistent).
+Potwierdzenie: Szybka odpowiedź do nadawcy.
+"""
 
-'''
-Odbiór: Przyjęcie połączenia HTTP/HTTPS.
-
-Normalizacja: Przekształcenie danych do standardu, który rozumie Twoja kolejka.
-
-Publikacja: Wysłanie wiadomości do brokera (np. RabbitMQ/Kafka).
-
-Potwierdzenie: Zwrócenie szybkiej odpowiedzi do nadawcy, by mógł wysłać kolejną paczkę.
-'''
-
-from collections import deque
+import asyncio
+import json
+import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from threading import Lock
 from typing import Any
 
+import aio_pika
 import uvicorn
 from fastapi import FastAPI, HTTPException
 
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@message_broker:5672/")
+QUEUE_NAME = "crop_analysis"
 
-app = FastAPI(title="Data Acquisition System")
-
-# FIFO w pamieci pelni tutaj role uproszczonego brokera danych.
-# Dzieki temu Data Service dostaje szybkie potwierdzenie, a AI moze pobrac
-# zadanie w osobnym kroku bez blokowania odbioru kolejnych pomiarow.
-message_queue: deque[dict[str, Any]] = deque()
-queue_lock = Lock()
-job_sequence = 0
+rmq_connection: aio_pika.abc.AbstractRobustConnection | None = None
+rmq_channel: aio_pika.abc.AbstractRobustChannel | None = None
+job_sequence: int = 0
+published_count: int = 0
 
 
 def _utc_timestamp() -> str:
-    """Zwraca znacznik czasu w ISO 8601, aby wszystkie uslugi mialy ten sam format."""
     return datetime.now(timezone.utc).isoformat()
 
 
 def _next_job_id() -> int:
-    """Nadaje kolejne id zadania, zeby mozna bylo sledzic przeplyw danych."""
     global job_sequence
-    with queue_lock:
-        job_sequence += 1
-        return job_sequence
+    job_sequence += 1
+    return job_sequence
 
 
 def _require_fields(payload: dict[str, Any], required_fields: list[str]) -> None:
-    """Sprawdza, czy nadawca przeslal wszystkie pola wymagane dla danego typu danych."""
-    missing_fields = [field for field in required_fields if field not in payload]
+    missing_fields = [f for f in required_fields if f not in payload]
     if missing_fields:
         raise HTTPException(
             status_code=400,
@@ -52,12 +45,10 @@ def _require_fields(payload: dict[str, Any], required_fields: list[str]) -> None
 
 
 def _normalize_iot_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Zamienia surowy pomiar IoT na wspolny format zadania dla kolejki."""
     _require_fields(
         payload,
         ["identifier", "client_id", "temperature", "humidity", "pressure"],
     )
-
     return {
         "job_id": _next_job_id(),
         "job_type": "iot_analysis",
@@ -76,14 +67,11 @@ def _normalize_iot_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_drone_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Buduje ustandaryzowany opis obserwacji z drona, gotowy do analizy obrazu."""
     _require_fields(
         payload,
         ["identifier", "client_id", "photo_number", "latitude", "longitude", "altitude"],
     )
-
     photo_number = payload["photo_number"]
-
     return {
         "job_id": _next_job_id(),
         "job_type": "drone_analysis",
@@ -105,101 +93,102 @@ def _normalize_drone_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def normalize_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """
-    Tworzy wspolny model wiadomosci.
-    Data Service moze wysylac rozne typy danych, ale kolejka i AI powinny
-    dostac jeden przewidywalny format.
-    """
     payload_type = payload.get("type")
-
     if payload_type == "iot":
         return _normalize_iot_payload(payload)
     if payload_type == "drone":
         return _normalize_drone_payload(payload)
-
     raise HTTPException(
         status_code=400,
         detail="Nieznany typ danych. Oczekiwano 'iot' albo 'drone'.",
     )
 
 
-def enqueue_message(message: dict[str, Any]) -> int:
-    """Dodaje zadanie do kolejki i zwraca aktualny rozmiar bufora."""
-    with queue_lock:
-        message_queue.append(message)
-        return len(message_queue)
+# ---------------------------------------------------------------------------
+# Cykl życia aplikacji – połączenie z RabbitMQ
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global rmq_connection, rmq_channel
+
+    while True:
+        try:
+            rmq_connection = await aio_pika.connect_robust(RABBITMQ_URL)
+            rmq_channel = await rmq_connection.channel()
+            await rmq_channel.declare_queue(QUEUE_NAME, durable=True)
+            print(f"[DataAcq] Polaczono z RabbitMQ, kolejka '{QUEUE_NAME}'.")
+            break
+        except Exception as exc:
+            print(f"[DataAcq] Czekam na RabbitMQ: {exc}")
+            await asyncio.sleep(3)
+
+    yield
+
+    if rmq_connection and not rmq_connection.is_closed:
+        await rmq_connection.close()
+        print("[DataAcq] Polaczenie z RabbitMQ zamkniete.")
 
 
-def dequeue_message() -> dict[str, Any] | None:
-    """Pobiera najstarsze zadanie z kolejki zgodnie z zasada FIFO."""
-    with queue_lock:
-        if not message_queue:
-            return None
-        return message_queue.popleft()
+app = FastAPI(title="Data Acquisition System", lifespan=lifespan)
 
+
+# ---------------------------------------------------------------------------
+# Endpointy
+# ---------------------------------------------------------------------------
 
 @app.get("/health")
-def healthcheck() -> dict[str, Any]:
-    """Prosty endpoint do sprawdzenia, czy serwis dziala."""
-    with queue_lock:
-        queue_size = len(message_queue)
-
+async def healthcheck() -> dict[str, Any]:
+    broker_ok = rmq_channel is not None and not rmq_channel.is_closed
     return {
-        "status": "ok",
+        "status": "ok" if broker_ok else "degraded",
         "service": "data_acquisition",
-        "queue_size": queue_size,
+        "broker": "rabbitmq",
+        "broker_connected": broker_ok,
         "timestamp": _utc_timestamp(),
     }
 
 
 @app.get("/queue/status")
-def queue_status() -> dict[str, Any]:
-    """Zwraca rozmiar kolejki, aby latwiej obserwowac przeplyw danych."""
-    with queue_lock:
-        queue_size = len(message_queue)
-        next_job = message_queue[0]["job_id"] if message_queue else None
-
+async def queue_status() -> dict[str, Any]:
     return {
-        "queue_size": queue_size,
-        "next_job_id": next_job,
+        "broker": "rabbitmq",
+        "queue_name": QUEUE_NAME,
+        "published_since_start": published_count,
+        "management_ui": "http://localhost:15672",
         "timestamp": _utc_timestamp(),
     }
 
 
 @app.post("/data")
-def receive_data(payload: dict[str, Any]) -> dict[str, Any]:
+async def receive_data(payload: dict[str, Any]) -> dict[str, Any]:
     """
     1. Odbiera dane HTTP z Data Service.
     2. Waliduje i normalizuje payload.
-    3. Odkalda wiadomosc do kolejki.
-    4. Szybko odpowiada nadawcy, zeby mogl wysylac kolejne pakiety.
+    3. Publikuje wiadomość do RabbitMQ (persistent – przeżyje restart brokera).
+    4. Szybko odpowiada nadawcy.
     """
+    global published_count
+
+    if rmq_channel is None or rmq_channel.is_closed:
+        raise HTTPException(status_code=503, detail="Broker niedostepny. Sprobuj pozniej.")
+
     normalized_message = normalize_payload(payload)
-    queue_size = enqueue_message(normalized_message)
+
+    await rmq_channel.default_exchange.publish(
+        aio_pika.Message(
+            body=json.dumps(normalized_message).encode(),
+            delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+        ),
+        routing_key=QUEUE_NAME,
+    )
+    published_count += 1
 
     return {
         "status": "queued",
         "job_id": normalized_message["job_id"],
         "job_type": normalized_message["job_type"],
-        "queue_size": queue_size,
         "received_at": normalized_message["received_at"],
-    }
-
-
-@app.get("/broker/next")
-def get_next_message() -> dict[str, Any]:
-    """
-    Uproszczony interfejs brokera.
-    AI System moze pobierac kolejne zadania z kolejki do dalszej analizy.
-    """
-    message = dequeue_message()
-    if message is None:
-        raise HTTPException(status_code=404, detail="Kolejka jest pusta.")
-
-    return {
-        "status": "dispatched",
-        "message": message,
-        "dispatched_at": _utc_timestamp(),
     }
 
 
