@@ -31,10 +31,7 @@ CROP_DISEASES = [
 ]
 
 
-# ---------------------------------------------------------------------------
 # Logika analizy
-# ---------------------------------------------------------------------------
-
 def analyze_iot(data: dict) -> dict:
     temp = data["temperature"]
     humidity = data["humidity"]
